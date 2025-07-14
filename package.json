@@ -1,0 +1,53 @@
+{
+  "name": "react-exact-geolocation",
+  "version": "1.0.10",
+  "main": "index.js",
+  "exports": {
+    "./index.js": "./src/index.js",
+    "./useGetGeolocation": "./src/useGetGeolocation.js"
+  },
+  "scripts": {
+    "test": "echo \"Error: no test specified\" && exit 1",
+    "build": "webpack"
+  },
+  "keywords": ["react", "geolocation", "amap", "location", "hook", "exact positioning"],
+  "author": "Eli <elidrac@163.com> (https://github.com/superelii)",
+  "license": "MIT",
+  "description": "A lightweight React hook for precise geolocation using Gaode Maps API, supporting accuracy control and offline caching.",
+  "repository": {
+    "type": "git",
+    "url": "https://github.com/superelii/react-exact-geolocation.git"
+  },
+  "homepage": "https://github.com/superelii/react-exact-geolocation#readme",
+  "bugs": {
+    "url": "https://github.com/superelii/react-exact-geolocation/issues"
+  },
+  "dependencies": {
+    "axios": "^1.7.9"
+  },
+  "devDependencies": {
+    "@babel/core": "^7.26.0",
+    "@babel/preset-env": "^7.26.0",
+    "@babel/preset-react": "^7.26.3",
+    "babel-loader": "^9.2.1",
+    "prop-types": "^15.8.1",
+    "webpack": "^5.97.1",
+    "webpack-cli": "^6.0.1"
+  },
+  "peerDependencies": {
+    "react": "^18.2.0",
+    "react-dom": "^18.2.0"
+  },
+  "publishConfig": {
+    "access": "public"
+  },
+  "files": [
+    "dist",
+    "src",
+    "README.md",
+    "LICENSE"
+  ],
+  "engines": {
+    "node": ">=14"
+  }
+}
