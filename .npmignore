@@ -1,0 +1,41 @@
+# 排除依赖目录（必删，避免冗余）
+node_modules/
+.pnp/
+.pnp.js
+
+# 排除源码目录（只发布 dist 产物）
+src/
+
+# 排除开发配置文件（用户用不到）
+webpack.config.js
+vite.config.js
+babel.config.js
+tsconfig.json
+eslint.config.mjs
+.prettierrc
+postcss.config.js
+
+# 排除版本控制和编辑器文件
+.git/
+.gitignore
+.github/
+.vscode/
+.idea/
+.DS_Store
+Thumbs.db
+
+# 排除测试相关文件（开发阶段用）
+__tests__/
+test/
+*.spec.js
+*.test.js
+
+# 排除环境和临时文件（可能含敏感信息）
+.env
+.env.*
+*.log
+*.tmp
+
+# 排除其他非必要目录（如果有的话）
+docs/
+examples/

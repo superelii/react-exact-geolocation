@@ -18,9 +18,9 @@ const makeSerializable = require("./util/makeSerializable");
 /** @typedef {string | undefined} Supports */
 /** @typedef {string | undefined} Media */
 /** @typedef {[CssLayer, Supports, Media]} InheritanceItem */
-/** @typedef {Array<InheritanceItem>} Inheritance */
+/** @typedef {InheritanceItem[]} Inheritance */
 
-/** @typedef {NormalModuleCreateData & { cssLayer: CssLayer, supports: Supports, media: Media, inheritance: Inheritance }} CSSModuleCreateData */
+/** @typedef {NormalModuleCreateData & { cssLayer: CssLayer, supports: Supports, media: Media, inheritance?: Inheritance }} CSSModuleCreateData */
 
 class CssModule extends NormalModule {
 	/**
@@ -158,7 +158,6 @@ class CssModule extends NormalModule {
 
 	/**
 	 * @param {ObjectDeserializerContext} context context
-	 * @returns {TODO} Module
 	 */
 	deserialize(context) {
 		const { read } = context;

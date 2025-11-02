@@ -1,0 +1,8 @@
+node_modules/
+dist/
+dist/types/
+*.config.js
+*.d.ts
+.vscode/
+.idea/
+.DS_Store
