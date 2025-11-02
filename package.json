@@ -1,16 +1,29 @@
 {
   "name": "react-exact-geolocation",
-  "version": "1.0.10",
-  "main": "index.js",
+  "version": "1.2.0",
+  "type": "module",
+  "main": "dist/index.js",
+  "types": "dist/index.d.ts",
   "exports": {
-    "./index.js": "./src/index.js",
-    "./useGetGeolocation": "./src/useGetGeolocation.js"
+    ".": "./dist/index.js"
   },
   "scripts": {
+    "build": "tsc",
+    "lint": "eslint src/**/*.{ts,tsx}",
+    "lint:fix": "eslint src/**/*.{ts,tsx} --fix",
+    "format": "prettier --write src/**/*.{ts,tsx,js,json,md}",
+    "prepack": "npm run build",
     "test": "echo \"Error: no test specified\" && exit 1",
-    "build": "webpack"
+    "test:vite": "vite"
   },
-  "keywords": ["react", "geolocation", "amap", "location", "hook", "exact positioning"],
+  "keywords": [
+    "react",
+    "geolocation",
+    "amap",
+    "location",
+    "hook",
+    "exact positioning"
+  ],
   "author": "Eli <elidrac@163.com> (https://github.com/superelii)",
   "license": "MIT",
   "description": "A lightweight React hook for precise geolocation using Gaode Maps API, supporting accuracy control and offline caching.",
@@ -23,14 +36,30 @@
     "url": "https://github.com/superelii/react-exact-geolocation/issues"
   },
   "dependencies": {
-    "axios": "^1.7.9"
+    "axios": "^1.13.1"
   },
   "devDependencies": {
     "@babel/core": "^7.26.0",
     "@babel/preset-env": "^7.26.0",
     "@babel/preset-react": "^7.26.3",
+    "@types/axios": "^0.14.4",
+    "@types/react": "^19.2.2",
+    "@types/react-dom": "^19.2.2",
+    "@typescript-eslint/eslint-plugin": "^8.46.2",
+    "@typescript-eslint/parser": "^8.46.2",
+    "@vitejs/plugin-react": "^4.7.0",
     "babel-loader": "^9.2.1",
+    "eslint": "^9.38.0",
+    "eslint-config-prettier": "^10.1.8",
+    "eslint-import-resolver-typescript": "^4.4.4",
+    "eslint-plugin-import": "^2.32.0",
+    "eslint-plugin-prettier": "^5.5.4",
+    "eslint-plugin-react": "^7.37.5",
+    "eslint-plugin-react-hooks": "^7.0.1",
+    "prettier": "^3.6.2",
     "prop-types": "^15.8.1",
+    "typescript-eslint": "^8.46.2",
+    "vite": "^6.4.1",
     "webpack": "^5.97.1",
     "webpack-cli": "^6.0.1"
   },
