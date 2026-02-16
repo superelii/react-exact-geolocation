@@ -75,17 +75,33 @@ export default [
         ecmaFeatures: { jsx: true },
       },
       globals: {
-        browser: true,
+        // 浏览器环境
+        window: true,
+        document: true,
+        navigator: true,
+        localStorage: true,
+        sessionStorage: true,
+        console: true,
+        fetch: true,
+        performance: true,
+        // React
         React: true,
         NodeJS: true,
-        navigator: true,
+        // 定时器
         setTimeout: true,
         clearTimeout: true,
+        setInterval: true,
+        clearInterval: true,
+        requestAnimationFrame: true,
+        cancelAnimationFrame: true,
+        // API
         AbortController: true,
         AbortSignal: true,
         GeolocationPosition: true,
         GeolocationPositionError: true,
         PositionOptions: true,
+        // 其他
+        browser: true,
       },
     },
 

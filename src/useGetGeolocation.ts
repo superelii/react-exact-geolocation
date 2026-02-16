@@ -1,6 +1,12 @@
 import { useState, useEffect, useCallback, useRef } from 'react';
 
-import { PositionData, UseGetGeolocationOptions, UseGetGeolocationResult, PositionCache } from './types/geolocation.js';
+import {
+  PositionData,
+  UseGetGeolocationOptions,
+  UseGetGeolocationResult,
+  PositionCache,
+  ApiKeyService,
+} from './types/geolocation.js';
 import { detectBrowser, getBrowserLocationOptions } from './utils/browserDetector.js';
 import { createPositionCache } from './utils/cache.js';
 import { AddressResolver, ResolverConfig } from './services/addressResolver.js';
@@ -11,7 +17,10 @@ import { GoogleResolver } from './services/resolvers/googleResolver.js';
 import { handleMapApiError, handleGeolocationError } from './utils/errorHandler.js';
 import { getLocaleText } from './utils/locale.js';
 
-const useGetGeolocation = (apiKey: string, options: UseGetGeolocationOptions = {}): UseGetGeolocationResult => {
+const useGetGeolocation = (
+  apiKeyOrService?: string | ApiKeyService,
+  options: UseGetGeolocationOptions = {}
+): UseGetGeolocationResult => {
   const {
     accuracy = 50,
     enableHighAccuracy = false,
@@ -21,6 +30,8 @@ const useGetGeolocation = (apiKey: string, options: UseGetGeolocationOptions = {
     debounceDelay = 300,
     mapService = 'amap',
     customResolver,
+    apiKeyService,
+    accuracyLevel = 'city',
     language: lang = 'zh-CN',
   } = options;
 
@@ -35,38 +46,47 @@ const useGetGeolocation = (apiKey: string, options: UseGetGeolocationOptions = {
   const [browser, setBrowser] = useState<string>('未知');
   const [retryCount, setRetryCount] = useState<number>(0);
 
-  // 引用管理（不变）
+  // 引用管理
   const positionCache = useRef<PositionCache>(createPositionCache()).current;
   const abortController = useRef<AbortController | null>(null);
   const debounceTimer = useRef<NodeJS.Timeout | null>(null);
   const isMounted = useRef<boolean>(true);
   const resolver = useRef<AddressResolver | null>(null);
+  const service = useRef<ApiKeyService | null>(null);
 
-  // 初始化：检测浏览器 + 初始化解析器（不变）
+  // 初始化：检测浏览器 + 初始化服务/解析器
   useEffect(() => {
     const currentBrowser = detectBrowser();
     setBrowser(currentBrowser);
 
-    const resolverConfig: ResolverConfig = {
-      apiKey,
-      browser: currentBrowser,
-    };
+    // 优先使用插件化服务
+    if (typeof apiKeyOrService === 'object' && apiKeyOrService !== null && 'getApiKey' in apiKeyOrService) {
+      service.current = apiKeyOrService;
+    } else if (apiKeyService) {
+      service.current = apiKeyService;
+    } else if (typeof apiKeyOrService === 'string') {
+      // 向后兼容：使用传统解析器
+      const resolverConfig: ResolverConfig = {
+        apiKey: apiKeyOrService,
+        browser: currentBrowser,
+      };
 
-    if (customResolver) {
-      resolver.current = customResolver;
-    } else {
-      switch (mapService) {
-        case 'baidu':
-          resolver.current = new BaiduResolver(resolverConfig);
-          break;
-        case 'tencent':
-          resolver.current = new TencentResolver(resolverConfig);
-          break;
-        case 'google':
-          resolver.current = new GoogleResolver(resolverConfig);
-          break;
-        default:
-          resolver.current = new AmapResolver(resolverConfig);
+      if (customResolver) {
+        resolver.current = customResolver;
+      } else {
+        switch (mapService) {
+          case 'baidu':
+            resolver.current = new BaiduResolver(resolverConfig);
+            break;
+          case 'tencent':
+            resolver.current = new TencentResolver(resolverConfig);
+            break;
+          case 'google':
+            resolver.current = new GoogleResolver(resolverConfig);
+            break;
+          default:
+            resolver.current = new AmapResolver(resolverConfig);
+        }
       }
     }
 
@@ -77,7 +97,7 @@ const useGetGeolocation = (apiKey: string, options: UseGetGeolocationOptions = {
         clearTimeout(debounceTimer.current);
       }
     };
-  }, [apiKey, mapService, customResolver]);
+  }, [apiKeyOrService, mapService, customResolver, apiKeyService]);
 
   // 生成缓存键（不变）
   const generateCacheKey = useCallback((latitude: number, longitude: number): string => {
@@ -86,11 +106,11 @@ const useGetGeolocation = (apiKey: string, options: UseGetGeolocationOptions = {
     return `pos-${lat}-${lng}`;
   }, []);
 
-  // 解析地址信息（修改错误处理为多语言）
+  // 解析地址信息（支持插件化服务获取API key）
   const getCityInfo = useCallback(
     async (latitude: number, longitude: number, accuracy: number, signal: AbortSignal) => {
-      if (!resolver.current) {
-        // 多语言提示：解析器未初始化
+      // 检查服务或解析器是否已初始化
+      if (!service.current && !resolver.current) {
         setError(getLocaleText('resolver_not_initialized', lang));
         setLoading(false);
         return;
@@ -112,25 +132,73 @@ const useGetGeolocation = (apiKey: string, options: UseGetGeolocationOptions = {
       }
 
       try {
-        const addressData = await resolver.current.getAddress({
-          longitude,
-          latitude,
-          accuracy,
-          signal,
-        });
+        let addressData;
+        let actualApiKey: string;
 
-        setCountry(addressData.country);
-        setProvince(addressData.province);
-        setCity(addressData.city);
-        setDistrict(addressData.district);
-        setTownship(addressData.township);
+        // 优先使用插件化服务获取API key
+        if (service.current) {
+          actualApiKey = await service.current.getApiKey();
 
-        if (enableCache) {
-          positionCache.set(cacheKey, addressData);
+          // 使用获取到的API key初始化解析器
+          const resolverConfig = {
+            apiKey: actualApiKey,
+            browser: browser,
+            accuracyLevel: accuracyLevel,
+          };
+
+          // 根据mapService创建对应的解析器
+          switch (mapService) {
+            case 'baidu':
+              resolver.current = new BaiduResolver(resolverConfig);
+              break;
+            case 'tencent':
+              resolver.current = new TencentResolver(resolverConfig);
+              break;
+            case 'google':
+              resolver.current = new GoogleResolver(resolverConfig);
+              break;
+            default:
+              resolver.current = new AmapResolver(resolverConfig);
+          }
+
+          // 使用解析器获取地址信息
+          addressData = await resolver.current.getAddress({
+            longitude,
+            latitude,
+            accuracy,
+            signal,
+          });
+        } else if (resolver.current) {
+          // 向后兼容：使用传统解析器（直接传入API key）
+          addressData = await resolver.current.getAddress({
+            longitude,
+            latitude,
+            accuracy,
+            signal,
+          });
+        }
+
+        if (addressData) {
+          setCountry(addressData.country);
+          setProvince(addressData.province);
+          setCity(addressData.city);
+          setDistrict(addressData.district);
+          setTownship(addressData.township);
+
+          if (enableCache) {
+            positionCache.set(cacheKey, addressData);
+          }
         }
       } catch (err) {
-        // 多语言错误提示：地图API错误
-        const errorMsg = handleMapApiError(err, lang, mapService);
+        // 多语言错误提示
+        let errorMsg;
+        if (service.current) {
+          // 插件化服务错误
+          errorMsg = getLocaleText('service_error', lang, { service: service.current.name });
+        } else {
+          // 传统解析器错误
+          errorMsg = handleMapApiError(err, lang, mapService);
+        }
         if (errorMsg) setError(errorMsg);
       } finally {
         if (isMounted.current) {
@@ -138,7 +206,7 @@ const useGetGeolocation = (apiKey: string, options: UseGetGeolocationOptions = {
         }
       }
     },
-    [enableCache, positionCache, generateCacheKey, accuracy, lang, mapService] // 依赖添加lang和mapService
+    [enableCache, positionCache, generateCacheKey, lang, mapService, browser, accuracyLevel]
   );
 
   // 开始定位（修改错误处理为多语言）

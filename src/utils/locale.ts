@@ -44,6 +44,12 @@ const localeMap = {
     'en-US': 'Location failed: {message}',
   },
 
+  // 插件化服务错误
+  service_error: {
+    'zh-CN': '服务错误: {service}',
+    'en-US': 'Service error: {service}',
+  },
+
   // 地图API错误
   amap_error: {
     'zh-CN': '高德API错误: {info}',

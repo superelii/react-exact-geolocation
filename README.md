@@ -1,86 +1,63 @@
-# useGetGeolocation Hook 使用文档
+# React Exact Geolocation
 
-## 介绍
+<p align="center">
+  <b>精确的 React 地理位置 Hook | Precise React Geolocation Hook</b>
+</p>
 
-`useGetGeolocation` 是一个功能强大的自定义 React Hook，用于获取用户的地理位置信息并通过高德地图 API 解析详细的地址信息。
+<p align="center">
+  <a href="https://www.npmjs.com/package/react-exact-geolocation">
+    <img src="https://img.shields.io/npm/v/react-exact-geolocation.svg" alt="npm version">
+  </a>
+  <a href="https://github.com/superelii/react-exact-geolocation/blob/main/LICENSE">
+    <img src="https://img.shields.io/npm/l/react-exact-geolocation.svg" alt="license">
+  </a>
+</p>
 
-## 安装
+[English](#english) | [中文](#中文)
 
-首先，确保你的项目中已经安装了必要的依赖：
+---
+
+<a name="中文"></a>
+## 🇨🇳 中文文档
+
+### 特性
+
+- 🔌 **插件化架构** - 支持自定义后端服务，避免前端暴露 API Key
+- 🌐 **多地图服务** - 支持高德、百度、腾讯、谷歌地图
+- 🚀 **弱网优化** - 自动检测网络状况，智能调整超时和重试策略
+- 💾 **智能缓存** - 离线时自动使用缓存数据
+- 🛡️ **TypeScript** - 完整的类型支持
+
+### 安装
 
 ```bash
-npm install axios prop-types
-# 或
-yarn add axios prop-types
+npm install react-exact-geolocation
 ```
 
-## 基本用法
+### 快速开始
 
-### 导入 Hook
+#### 方式一：传统 API Key（简单）
 
-```jsx
-import useGetGeolocation from './useGetGeolocation'; // 根据实际路径调整
-```
+```tsx
+import useGetGeolocation from 'react-exact-geolocation';
 
-### 在组件中使用
-
-```jsx
-function LocationComponent() {
-  const apiKey = 'YOUR_AMAP_API_KEY'; // 替换为实际的高德地图 API 密钥
-  
-  const {
-    position,
-    country,
-    province,
-    city,
-    district,
-    township,
-    error,
-    loading,
-    browser,
-    retryCount,
-    startGeolocation,
-    clearCache
-  } = useGetGeolocation(apiKey, {
-    enableHighAccuracy: true,
-    timeout: 15000,
-    maxRetry: 3
-  });
+function App() {
+  const { position, city, error, loading, startGeolocation } = useGetGeolocation(
+    'YOUR_AMAP_API_KEY',
+    { mapService: 'amap' }
+  );
 
   return (
     <div>
-      <h2>地理位置信息</h2>
-      <p>检测到的浏览器: {browser}</p>
-      
       <button onClick={startGeolocation} disabled={loading}>
-        {loading ? `定位中... (重试: ${retryCount})` : '获取位置信息'}
+        {loading ? '定位中...' : '获取位置'}
       </button>
-      
-      <button onClick={clearCache} style={{marginLeft: '10px'}}>
-        清除缓存
-      </button>
-      
-      {loading && <p>正在获取位置信息...</p>}
-      
-      {error && (
-        <div style={{color: 'red', margin: '10px 0'}}>
-          错误: {error}
-        </div>
-      )}
-      
+      {error && <p>错误: {error}</p>}
       {position && (
         <div>
-          <h3>坐标信息</h3>
           <p>纬度: {position.latitude}</p>
           <p>经度: {position.longitude}</p>
-          <p>精度: {position.accuracy}米</p>
-          
-          <h3>地址信息</h3>
-          <p>国家: {country}</p>
-          <p>省份: {province}</p>
           <p>城市: {city}</p>
-          <p>区县: {district}</p>
-          <p>乡镇: {township}</p>
         </div>
       )}
     </div>
@@ -88,149 +65,209 @@ function LocationComponent() {
 }
 ```
 
-## 参数说明
+#### 方式二：插件化服务（推荐）
 
-### 必需参数
+```tsx
+import useGetGeolocation from 'react-exact-geolocation';
 
-- `apiKey` (字符串)：高德地图 API 密钥，用于调用地理编码服务
+// 自定义后端服务
+const backendService = {
+  name: '后端API服务',
+  async getApiKey() {
+    const res = await fetch('/api/location/key');
+    const data = await res.json();
+    return data.key;
+  }
+};
 
-### 选项参数
+function App() {
+  const { position, city, startGeolocation } = useGetGeolocation(
+    backendService,
+    { mapService: 'amap' }
+  );
+  // ...
+}
+```
 
-| 参数 | 类型 | 默认值 | 描述 |
+#### 方式三：弱网优化版
+
+```tsx
+import { useGetGeolocationOptimized } from 'react-exact-geolocation';
+
+function App() {
+  const { 
+    position, 
+    city, 
+    networkQuality,  // 网络状态: 'good' | 'poor' | 'offline'
+    isOffline,       // 是否离线
+    usingCache,      // 是否使用缓存
+    startGeolocation 
+  } = useGetGeolocationOptimized(backendService);
+  // ...
+}
+```
+
+### API 参考
+
+#### 参数
+
+| 参数 | 类型 | 默认值 | 说明 |
 |------|------|--------|------|
-| `accuracy` | number | 50 | 定位精度（米） |
-| `enableHighAccuracy` | boolean | false | 是否启用高精度模式 |
-| `timeout` | number | 10000 | 定位超时时间（毫秒） |
-| `enableCache` | boolean | true | 是否启用位置缓存 |
-| `maxRetry` | number | 2 | 最大重试次数 |
-| `debounceDelay` | number | 300 | 防抖延迟时间（毫秒） |
+| `apiKeyOrService` | `string \| ApiKeyService` | - | API Key 或自定义服务 |
+| `options.mapService` | `'amap' \| 'baidu' \| 'tencent' \| 'google'` | `'amap'` | 地图服务 |
+| `options.enableCache` | `boolean` | `true` | 启用缓存 |
+| `options.timeout` | `number` | `10000` | 超时时间(ms) |
+| `options.maxRetry` | `number` | `2` | 最大重试次数 |
 
-## 返回值说明
+#### 返回值
 
-| 属性 | 类型 | 描述 |
+| 属性 | 类型 | 说明 |
 |------|------|------|
-| `position` | object | 包含纬度、经度和精度的对象 |
-| `country` | string | 国家名称 |
-| `province` | string | 省份名称 |
-| `city` | string | 城市名称 |
-| `district` | string | 区县名称 |
-| `township` | string | 乡镇/街道名称 |
-| `error` | string | 错误信息 |
-| `loading` | boolean | 是否正在加载 |
-| `browser` | string | 检测到的浏览器类型 |
-| `retryCount` | number | 当前重试次数 |
-| `startGeolocation` | function | 触发定位的函数 |
-| `clearCache` | function | 清除缓存的函数 |
+| `position` | `{ latitude, longitude, accuracy }` | 位置信息 |
+| `city` | `string` | 城市名称 |
+| `province` | `string` | 省份名称 |
+| `error` | `string` | 错误信息 |
+| `loading` | `boolean` | 加载状态 |
+| `startGeolocation` | `() => void` | 开始定位 |
 
-## 高级用法
+---
 
-### 自定义选项配置
+<a name="english"></a>
+## 🇺🇸 English Documentation
 
-```jsx
-const {
-  // ... 其他返回值
-} = useGetGeolocation(apiKey, {
-  accuracy: 30, // 更高精度
-  enableHighAccuracy: true,
-  timeout: 20000, // 更长超时时间
-  enableCache: true, // 启用缓存
-  maxRetry: 3, // 最多重试3次
-  debounceDelay: 500 // 500ms防抖延迟
-});
+### Features
+
+- 🔌 **Plugin Architecture** - Support custom backend services to avoid exposing API keys in frontend
+- 🌐 **Multi-map Services** - Support Amap, Baidu, Tencent, Google Maps
+- 🚀 **Weak Network Optimization** - Auto-detect network status and intelligently adjust timeout & retry strategies
+- 💾 **Smart Caching** - Automatically use cached data when offline
+- 🛡️ **TypeScript** - Complete type support
+
+### Installation
+
+```bash
+npm install react-exact-geolocation
 ```
 
-### 处理特定浏览器兼容性
+### Quick Start
 
-Hook 会自动检测浏览器类型并调整参数，但你可以根据浏览器类型提供特定 UI：
+#### Method 1: Traditional API Key (Simple)
 
-```jsx
-function LocationComponent() {
-  const { browser, error, startGeolocation } = useGetGeolocation(apiKey);
-  
-  // 针对特定浏览器的提示
-  const browserSpecificTip = browser.includes('360') 
-    ? "360浏览器用户请点击地址栏右侧的权限图标允许位置访问"
-    : browser.includes('Edge')
-    ? "Edge浏览器用户请点击地址栏左侧的锁图标允许位置访问"
-    : null;
+```tsx
+import useGetGeolocation from 'react-exact-geolocation';
+
+function App() {
+  const { position, city, error, loading, startGeolocation } = useGetGeolocation(
+    'YOUR_AMAP_API_KEY',
+    { mapService: 'amap' }
+  );
 
   return (
     <div>
-      {browserSpecificTip && (
-        <div className="browser-tip">{browserSpecificTip}</div>
+      <button onClick={startGeolocation} disabled={loading}>
+        {loading ? 'Locating...' : 'Get Location'}
+      </button>
+      {error && <p>Error: {error}</p>}
+      {position && (
+        <div>
+          <p>Latitude: {position.latitude}</p>
+          <p>Longitude: {position.longitude}</p>
+          <p>City: {city}</p>
+        </div>
       )}
-      
-      <button onClick={startGeolocation}>获取位置</button>
-      
-      {error && <div className="error">{error}</div>}
     </div>
   );
 }
 ```
 
-### 结合 useEffect 自动触发
+#### Method 2: Plugin Service (Recommended)
 
-```jsx
-function AutoLocationComponent() {
-  const { startGeolocation, error, loading } = useGetGeolocation(apiKey);
-  
-  useEffect(() => {
-    // 组件挂载后自动触发定位
-    startGeolocation();
-  }, [startGeolocation]);
-  
-  return (
-    <div>
-      {loading && <p>正在获取位置...</p>}
-      {error && <p>错误: {error}</p>}
-    </div>
+```tsx
+import useGetGeolocation from 'react-exact-geolocation';
+
+// Custom backend service
+const backendService = {
+  name: 'Backend API Service',
+  async getApiKey() {
+    const res = await fetch('/api/location/key');
+    const data = await res.json();
+    return data.key;
+  }
+};
+
+function App() {
+  const { position, city, startGeolocation } = useGetGeolocation(
+    backendService,
+    { mapService: 'amap' }
   );
+  // ...
 }
 ```
 
-## 浏览器兼容性
+#### Method 3: Optimized for Weak Networks
 
-该 Hook 支持以下浏览器：
+```tsx
+import { useGetGeolocationOptimized } from 'react-exact-geolocation';
 
-- Firefox
-- Microsoft Edge (Chromium 和传统版)
-- 360浏览器
-- QQ浏览器
-- UC浏览器
+function App() {
+  const { 
+    position, 
+    city, 
+    networkQuality,  // Network status: 'good' | 'poor' | 'offline'
+    isOffline,       // Is offline
+    usingCache,      // Is using cache
+    startGeolocation 
+  } = useGetGeolocationOptimized(backendService);
+  // ...
+}
+```
 
-## 注意事项
+### API Reference
 
-1. **HTTPS 要求**：地理定位 API 需要在 HTTPS 环境或 localhost 下使用
-2. **用户权限**：首次使用时会请求用户位置权限，需要用户授权
-3. **API 限制**：高德地图 API 有调用频率限制，请合理使用缓存功能
-4. **移动设备**：在移动设备上可能需要更长的超时时间
+#### Parameters
 
-## 错误处理
+| Parameter | Type | Default | Description |
+|------|------|--------|------|
+| `apiKeyOrService` | `string \| ApiKeyService` | - | API Key or custom service |
+| `options.mapService` | `'amap' \| 'baidu' \| 'tencent' \| 'google'` | `'amap'` | Map service |
+| `options.enableCache` | `boolean` | `true` | Enable cache |
+| `options.timeout` | `number` | `10000` | Timeout (ms) |
+| `options.maxRetry` | `number` | `2` | Max retry count |
 
-Hook 提供了详细的错误信息，包括：
+#### Return Values
 
-- 权限拒绝错误（针对不同浏览器提供具体解决方案）
-- 定位超时错误（自动重试机制）
-- 网络错误（API 调用失败）
-- 浏览器不支持错误
+| Property | Type | Description |
+|------|------|------|
+| `position` | `{ latitude, longitude, accuracy }` | Position info |
+| `city` | `string` | City name |
+| `province` | `string` | Province name |
+| `error` | `string` | Error message |
+| `loading` | `boolean` | Loading state |
+| `startGeolocation` | `() => void` | Start geolocation |
 
-## 性能优化
+---
 
-- **缓存机制**：相同位置的请求会使用缓存结果，减少 API 调用
-- **防抖技术**：防止快速连续点击导致的多次请求
-- **AbortController**：取消进行中的请求，避免资源浪费
-- **智能重试**：失败时自动重试，提高弱网环境下的成功率
+## Changelog
 
-
-## 更新日志
+### v1.2.1
+- 📝 Updated documentation with bilingual support
+- ✨ Plugin architecture support
+- 🚀 Weak network optimization
+- 💾 Smart caching for offline mode
+- 🌐 Multi-map service support
 
 ### v1.1.0
-- 添加 AbortController 支持
-- 实现防抖和缓存技术
-- 提高弱网环境下成功率至 92%
-- 增强浏览器兼容性检测
+- ✨ AbortController support
+- 💾 Caching and debouncing
+- 🚀 Improved weak network success rate to 92%
 
 ### v1.0.0
-- 初始版本发布
-- 基本地理位置获取功能
-- 高德地图地址解析集成
+- 🎉 Initial release
+- 📍 Basic geolocation functionality
+- 🗺️ Amap integration
+
+---
+
+## License
+
+MIT © [Eli Chen](https://github.com/superelii)

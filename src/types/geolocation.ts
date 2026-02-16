@@ -20,7 +20,17 @@ export interface AddressInfo {
   township: string | null;
 }
 
-/** 定位配置选项（新增语言配置） */
+/** 插件化API Key服务接口 */
+export interface ApiKeyService {
+  /** 服务名称 */
+  name: string;
+  /** 获取API key的异步方法（后端只返回API key，不处理精度逻辑） */
+  getApiKey(): Promise<string>;
+  /** 获取服务支持的精度级别 */
+  getAccuracyLevel(): 'city' | 'meter';
+}
+
+/** 定位配置选项（新增插件化服务配置） */
 export interface UseGetGeolocationOptions {
   accuracy?: number;
   enableHighAccuracy?: boolean;
@@ -30,7 +40,11 @@ export interface UseGetGeolocationOptions {
   debounceDelay?: number;
   mapService?: MapService;
   customResolver?: AddressResolver;
-  language?: Language; // 新增：语言配置（默认zh-CN）
+  language?: Language;
+  /** 新增：插件化API Key服务，优先使用此配置 */
+  apiKeyService?: ApiKeyService;
+  /** 精度级别：city（城市级）或 meter（米级） */
+  accuracyLevel?: 'city' | 'meter';
 }
 
 /** 支持的地图服务类型 */
