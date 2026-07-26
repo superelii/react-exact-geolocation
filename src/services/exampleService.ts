@@ -31,7 +31,7 @@ export class ExampleApiKeyService implements ApiKeyService {
         throw new Error(`后端服务错误: ${response.statusText}`);
       }
 
-      const data = await response.json();
+      const data = await response.json() as { apiKey?: string };
 
       // 后端返回API Key字符串
       if (data.apiKey && typeof data.apiKey === 'string') {
@@ -72,7 +72,7 @@ export class AmapApiKeyService implements ApiKeyService {
       throw new Error(`代理服务错误: ${response.statusText}`);
     }
 
-    const data = await response.json();
+    const data = await response.json() as { apiKey?: string };
 
     // 返回高德地图API Key
     if (data.apiKey && typeof data.apiKey === 'string') {

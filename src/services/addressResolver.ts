@@ -4,6 +4,8 @@ import { AddressInfo } from '../types/geolocation.js';
 export interface ResolverConfig {
   apiKey: string; // 各平台的API密钥（百度用ak，腾讯用key等，统一用apiKey传入）
   browser: string; // 浏览器类型（用于CORS适配）
+  accuracyLevel?: 'city' | 'meter'; // 精度级别：city（城市级）或 meter（米级）
+  securitySecret?: string; // 高德「签名校验」模式私钥（安全密钥）；提供后请求会附带 sig
 }
 
 /** 地址解析请求参数 */

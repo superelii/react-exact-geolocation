@@ -10,4 +10,13 @@ export default defineConfig({
     port: 3000,
     open: true, // 自动打开浏览器
   },
+   build: {
+    lib: {
+      entry: './src/index.ts',
+      formats: ['es']
+    },
+    rollupOptions: {
+      external: ['react', 'react-dom']
+    }
+  }
 });

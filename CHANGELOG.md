@@ -2,6 +2,32 @@
 
 All notable changes to this project will be documented in this file.
 
+## [1.3.0] - 2026-07-26
+
+### ✨ Features | 新特性
+
+- **Permission API** | **位置权限请求**
+  - Added `requestPermission()` to proactively trigger the browser's geolocation authorization prompt
+  - 新增 `requestPermission()`，可主动触发浏览器位置授权弹窗
+  - Exposed `permissionState` (`granted` / `denied` / `prompt` / `unsupported`) with live updates via `PermissionStatus.onchange`
+  - 暴露 `permissionState` 权限状态，并通过 `PermissionStatus.onchange` 实时刷新（在地址栏锁图标切换权限后自动更新）
+- **Amap Signature (安全密钥)** | **高德签名校验**
+  - Added `amapSecuritySecret` option for Amap "签名校验" mode; `sig` is computed via MD5 of sorted params
+  - 新增 `amapSecuritySecret` 选项，支持高德「签名校验」模式（按排序参数 MD5 生成 `sig`），并新增纯 TS `md5` 工具
+- **Browser Test Demo** | **浏览器实测页**
+  - Added `demo/` + `pnpm dev` for real-device testing with `navigator.geolocation` and live reverse-geocoding
+  - 新增 `demo/` 与 `pnpm dev`，可在真机浏览器实测定位与逆地理编码
+
+### 🐛 Bug Fixes | 修复
+
+- Decoupled browser `maximumAge` from `enableCache`; now fixed to `0` so `enableHighAccuracy` actually takes effect instead of returning a 5-minute cached fix
+- 将浏览器 `maximumAge` 与 `enableCache` 解耦并固定为 `0`，使 `enableHighAccuracy` 真正生效（之前会直接返回 5 分钟内的缓存定位，掩盖高精度效果）
+
+### ⚠️ Constraints | 约束
+
+- Geolocation requires a **secure context** (HTTPS / localhost / allow-listed origin). Plain `http://<lan-ip>` disables it — `requestPermission()` returns `unsupported`
+- 定位仅在**安全上下文**下可用（HTTPS / localhost / 加白名单的来源）；普通 `http://局域网IP` 会被禁用，`requestPermission()` 返回 `unsupported`
+
 ## [1.2.1] - 2026-02-16
 
 ### 📝 Documentation | 文档
