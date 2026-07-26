@@ -2,6 +2,16 @@
 
 All notable changes to this project will be documented in this file.
 
+## [1.4.0](https://github.com/superelii/react-exact-geolocation/compare/react-exact-geolocation-v1.3.0...react-exact-geolocation-v1.4.0) (2026-07-26)
+
+
+### Features | 新特性
+
+* add release-please CI automated release workflow ([f7a6986](https://github.com/superelii/react-exact-geolocation/commit/f7a6986375518452824d9c7cf5a176193b9a85c0))
+* add release-please CI automated release workflow ([090edc7](https://github.com/superelii/react-exact-geolocation/commit/090edc774be9932ae53e780155ac64662c932b45))
+* 版本更新 ([bb8aedb](https://github.com/superelii/react-exact-geolocation/commit/bb8aedb56d0a7922286028061c0fc54d3242906a))
+* 调整 ([29689af](https://github.com/superelii/react-exact-geolocation/commit/29689afca38c579d46836ec347f6254dd8a27a1b))
+
 ## [1.3.0] - 2026-07-26
 
 ### ✨ Features | 新特性
