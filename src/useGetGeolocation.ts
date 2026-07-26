@@ -6,8 +6,10 @@ import {
   UseGetGeolocationResult,
   PositionCache,
   ApiKeyService,
+  PositioningProvider,
+  GeolocationPermissionState,
 } from './types/geolocation.js';
-import { detectBrowser, getBrowserLocationOptions } from './utils/browserDetector.js';
+import { detectBrowser } from './utils/browserDetector.js';
 import { createPositionCache } from './utils/cache.js';
 import { AddressResolver, ResolverConfig } from './services/addressResolver.js';
 import { AmapResolver } from './services/resolvers/amapResolver.js';
@@ -16,13 +18,14 @@ import { TencentResolver } from './services/resolvers/tencentResolver.js';
 import { GoogleResolver } from './services/resolvers/googleResolver.js';
 import { handleMapApiError, handleGeolocationError } from './utils/errorHandler.js';
 import { getLocaleText } from './utils/locale.js';
+import { getCoordinateTransformForService, CoordinateTransform } from './utils/coordinateTransform.js';
+import { createBrowserPositioningProvider, requestGeolocationPermission } from './providers/browserPositioningProvider.js';
 
 const useGetGeolocation = (
   apiKeyOrService?: string | ApiKeyService,
   options: UseGetGeolocationOptions = {}
 ): UseGetGeolocationResult => {
   const {
-    accuracy = 50,
     enableHighAccuracy = false,
     timeout = 10000,
     enableCache = true,
@@ -30,7 +33,10 @@ const useGetGeolocation = (
     debounceDelay = 300,
     mapService = 'amap',
     customResolver,
+    positioningProvider,
     apiKeyService,
+    amapSecuritySecret,
+    coordinateTransform,
     accuracyLevel = 'city',
     language: lang = 'zh-CN',
   } = options;
@@ -45,11 +51,38 @@ const useGetGeolocation = (
   const [loading, setLoading] = useState<boolean>(false);
   const [browser, setBrowser] = useState<string>('未知');
   const [retryCount, setRetryCount] = useState<number>(0);
+  const [permissionState, setPermissionState] = useState<GeolocationPermissionState | null>(null);
+
+  // 实时监听浏览器位置权限变化（地址栏锁图标里切换允许/拒绝时自动刷新 UI）
+  useEffect(() => {
+    // 非安全上下文（http 局域网 IP）下定位被禁用，直接标记为 unsupported
+    if (typeof window !== 'undefined' && 'isSecureContext' in window && !window.isSecureContext) {
+      setPermissionState('unsupported');
+      return;
+    }
+    if (typeof navigator === 'undefined' || !navigator.permissions?.query) return;
+
+    let statusRef: PermissionStatus | null = null;
+    const update = (s: PermissionStatus) => setPermissionState(s.state as GeolocationPermissionState);
+
+    navigator.permissions
+      .query({ name: 'geolocation' })
+      .then((status) => {
+        statusRef = status;
+        update(status);
+        status.onchange = () => update(status);
+      })
+      .catch(() => {});
+
+    return () => {
+      if (statusRef) statusRef.onchange = null;
+    };
+  }, []);
 
   // 引用管理
   const positionCache = useRef<PositionCache>(createPositionCache()).current;
   const abortController = useRef<AbortController | null>(null);
-  const debounceTimer = useRef<NodeJS.Timeout | null>(null);
+  const debounceTimer = useRef<ReturnType<typeof setTimeout> | null>(null);
   const isMounted = useRef<boolean>(true);
   const resolver = useRef<AddressResolver | null>(null);
   const service = useRef<ApiKeyService | null>(null);
@@ -69,6 +102,7 @@ const useGetGeolocation = (
       const resolverConfig: ResolverConfig = {
         apiKey: apiKeyOrService,
         browser: currentBrowser,
+        securitySecret: amapSecuritySecret,
       };
 
       if (customResolver) {
@@ -97,7 +131,7 @@ const useGetGeolocation = (
         clearTimeout(debounceTimer.current);
       }
     };
-  }, [apiKeyOrService, mapService, customResolver, apiKeyService]);
+  }, [apiKeyOrService, mapService, customResolver, apiKeyService, amapSecuritySecret]);
 
   // 生成缓存键（不变）
   const generateCacheKey = useCallback((latitude: number, longitude: number): string => {
@@ -144,25 +178,28 @@ const useGetGeolocation = (
             apiKey: actualApiKey,
             browser: browser,
             accuracyLevel: accuracyLevel,
+            securitySecret: amapSecuritySecret,
           };
+
+          let currentResolver: any;
 
           // 根据mapService创建对应的解析器
           switch (mapService) {
             case 'baidu':
-              resolver.current = new BaiduResolver(resolverConfig);
+              currentResolver = new BaiduResolver(resolverConfig);
               break;
             case 'tencent':
-              resolver.current = new TencentResolver(resolverConfig);
+              currentResolver = new TencentResolver(resolverConfig);
               break;
             case 'google':
-              resolver.current = new GoogleResolver(resolverConfig);
+              currentResolver = new GoogleResolver(resolverConfig);
               break;
             default:
-              resolver.current = new AmapResolver(resolverConfig);
+              currentResolver = new AmapResolver(resolverConfig);
           }
 
           // 使用解析器获取地址信息
-          addressData = await resolver.current.getAddress({
+          addressData = await currentResolver.getAddress({
             longitude,
             latitude,
             accuracy,
@@ -206,10 +243,10 @@ const useGetGeolocation = (
         }
       }
     },
-    [enableCache, positionCache, generateCacheKey, lang, mapService, browser, accuracyLevel]
+    [enableCache, positionCache, generateCacheKey, lang, mapService, browser, accuracyLevel, amapSecuritySecret]
   );
 
-  // 开始定位（修改错误处理为多语言）
+  // 开始定位（支持可注入的定位源 + 坐标转换）
   const startGeolocation = useCallback(() => {
     abortController.current?.abort();
     if (debounceTimer.current) {
@@ -224,54 +261,74 @@ const useGetGeolocation = (
       setLoading(true);
       setRetryCount(0);
 
-      const attemptGeolocation = (attempt = 0) => {
-        if (!navigator.geolocation) {
-          // 多语言提示：不支持定位功能
-          setError(getLocaleText('geolocation_not_supported', lang, { browser }));
-          setLoading(false);
-          return;
-        }
-
-        const locationOptions = getBrowserLocationOptions(browser, {
+      // 定位源：优先使用注入的企业级 provider，否则回退浏览器定位
+      const provider: PositioningProvider =
+        positioningProvider ??
+        createBrowserPositioningProvider({
           enableHighAccuracy,
           timeout,
-          maximumAge: enableCache ? 300000 : 0,
+          // 每次获取都重新定位（maximumAge=0），否则浏览器返回 5 分钟内的缓存 fix，
+          // 会掩盖 enableHighAccuracy 的效果；地址缓存仍由 enableCache 单独控制。
+          maximumAge: 0,
         });
 
-        const handleSuccess = (positionData: GeolocationPosition) => {
+      const attempt = async (attemptIndex = 0) => {
+        try {
+          const raw = await provider(signal);
           if (signal.aborted) return;
 
+          // 保存设备实测的原始 WGS-84 坐标
           const newPosition: PositionData = {
-            latitude: positionData.coords.latitude,
-            longitude: positionData.coords.longitude,
-            accuracy: positionData.coords.accuracy,
+            latitude: raw.latitude,
+            longitude: raw.longitude,
+            accuracy: raw.accuracy,
           };
-
           setPosition(newPosition);
-          getCityInfo(newPosition.latitude, newPosition.longitude, accuracy, signal);
-        };
 
-        const handleError = (error: GeolocationPositionError) => {
+          // 按地图服务做坐标系转换后再逆地理编码
+          const transform: CoordinateTransform = coordinateTransform ?? getCoordinateTransformForService(mapService);
+          const t = transform(raw.latitude, raw.longitude);
+
+          // 使用真实 GPS 精度作为 radius，而非选项默认值
+          getCityInfo(t.lat, t.lng, raw.accuracy, signal);
+        } catch (err) {
           if (signal.aborted) return;
 
-          if (attempt < maxRetry) {
+          if (attemptIndex < maxRetry) {
             setRetryCount((prev: number) => prev + 1);
-            setTimeout(() => attemptGeolocation(attempt + 1), 1000 * (attempt + 1));
+            setTimeout(() => attempt(attemptIndex + 1), 1000 * (attemptIndex + 1));
             return;
           }
 
           // 多语言错误提示：定位失败
-          const errorMessage = handleGeolocationError(error, browser, lang);
+          const errorMessage = handleGeolocationError(err, browser, lang);
           setError(errorMessage);
           setLoading(false);
-        };
-
-        navigator.geolocation.getCurrentPosition(handleSuccess, handleError, locationOptions);
+        }
       };
 
-      attemptGeolocation();
+      attempt();
     }, debounceDelay);
-  }, [browser, enableHighAccuracy, timeout, enableCache, maxRetry, accuracy, getCityInfo, debounceDelay, lang]);
+  }, [
+    browser,
+    enableHighAccuracy,
+    timeout,
+    enableCache,
+    maxRetry,
+    getCityInfo,
+    debounceDelay,
+    lang,
+    positioningProvider,
+    coordinateTransform,
+    mapService,
+  ]);
+
+  // 主动请求位置权限（触发浏览器授权弹窗）
+  const requestPermission = useCallback(async (): Promise<GeolocationPermissionState> => {
+    const state = await requestGeolocationPermission();
+    setPermissionState(state);
+    return state;
+  }, []);
 
   // 清理缓存（不变）
   const clearCache = useCallback(() => {
@@ -291,6 +348,8 @@ const useGetGeolocation = (
     retryCount,
     startGeolocation,
     clearCache,
+    requestPermission,
+    permissionState,
   };
 };
 

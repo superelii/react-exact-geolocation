@@ -3,6 +3,7 @@ import { useState, useEffect, useCallback } from 'react';
 import useGetGeolocation from './useGetGeolocation.js';
 import { detectNetworkQuality, watchNetworkStatus } from './utils/networkDetector.js';
 import { NetworkQuality } from './utils/networkDetector.js';
+import type { PositionData } from './types/geolocation.js';
 
 /**
  * 弱网优化的地理位置Hook
@@ -57,33 +58,36 @@ export const useGetGeolocationOptimized = (apiKeyOrService?: string | any, optio
   // 使用基础Hook
   const geolocationResult = useGetGeolocation(apiKeyOrService, optimizedOptions());
 
-  // 离线模式下使用缓存数据
+  // 离线且无新鲜位置时，回退到本地缓存（真正应用，而非仅打印）
+  const [cachedPosition, setCachedPosition] = useState<{
+    position: PositionData | null;
+    city: string | null;
+    timestamp: number;
+  } | null>(null);
+
   useEffect(() => {
-    // 使用 requestAnimationFrame 避免同步 setState
-    const timer = requestAnimationFrame(() => {
-      if (isOffline && !geolocationResult.position) {
-        setUsingCache(true);
-        // 这里可以从localStorage读取缓存的位置
-        const cachedPosition = localStorage.getItem('lastKnownPosition');
-        if (cachedPosition) {
-          try {
-            const parsed = JSON.parse(cachedPosition);
-            // 通知用户正在使用缓存
-            // eslint-disable-next-line no-console
-            console.log('使用缓存的位置数据:', parsed);
-          } catch {
-            console.error('解析缓存位置失败');
-          }
+    if (isOffline && !geolocationResult.position) {
+      const raw = localStorage.getItem('lastKnownPosition');
+      if (raw) {
+        try {
+          setCachedPosition(JSON.parse(raw));
+          setUsingCache(true);
+        } catch {
+          console.error('解析缓存位置失败');
+          setCachedPosition(null);
+          setUsingCache(false);
         }
       } else {
+        setCachedPosition(null);
         setUsingCache(false);
       }
-    });
-
-    return () => cancelAnimationFrame(timer);
+    } else {
+      setCachedPosition(null);
+      setUsingCache(false);
+    }
   }, [isOffline, geolocationResult.position]);
 
-  // 保存位置到缓存
+  // 有新鲜位置时持久化，供后续离线回退使用
   useEffect(() => {
     if (geolocationResult.position) {
       localStorage.setItem(
@@ -97,8 +101,14 @@ export const useGetGeolocationOptimized = (apiKeyOrService?: string | any, optio
     }
   }, [geolocationResult.position, geolocationResult.city]);
 
+  // 离线回退：优先使用新鲜位置，否则使用本地缓存
+  const effectivePosition = geolocationResult.position ?? cachedPosition?.position ?? null;
+  const effectiveCity = geolocationResult.city ?? cachedPosition?.city ?? null;
+
   return {
     ...geolocationResult,
+    position: effectivePosition,
+    city: effectiveCity,
     networkQuality,
     isOffline,
     usingCache,

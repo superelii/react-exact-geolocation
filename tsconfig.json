@@ -1,8 +1,10 @@
 {
   "compilerOptions": {
-    "target": "ESNext",
-    "module": "Node16",
-    "moduleResolution": "Node16",
+    "target": "ES2020",
+    "module": "ESNext",
+    "moduleResolution": "node",
+    "jsx": "react-jsx",
+    "lib": ["DOM", "ES2020", "DOM.Iterable"],
     "outDir": "./dist",
     "rootDir": "./src",
     "strict": true,
@@ -11,9 +13,8 @@
     "forceConsistentCasingInFileNames": true,
     "resolveJsonModule": true,
     "declaration": true,
-    "removeComments": true,
-    "lib": ["DOM", "ESNext"]
+    "removeComments": true
   },
   "include": ["src/**/*"],
-  "exclude": ["node_modules", "dist", "test"]
+  "exclude": ["node_modules", "dist", "test", "**/*.test.ts", "**/*.test.tsx"]
 }

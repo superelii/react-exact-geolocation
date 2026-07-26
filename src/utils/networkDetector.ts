@@ -13,7 +13,7 @@ export interface NetworkQuality {
 /**
  * 检测网络状况
  */
-export const detectNetworkQuality = async (): Promise<NetworkQuality> => {
+export const detectNetworkQuality = async (testUrl?: string): Promise<NetworkQuality> => {
   // 使用 Navigator.connection API (如果可用)
   const connection =
     (navigator as any).connection || (navigator as any).mozConnection || (navigator as any).webkitConnection;
@@ -24,7 +24,7 @@ export const detectNetworkQuality = async (): Promise<NetworkQuality> => {
     // 根据网络类型判断质量
     let quality: 'good' | 'poor' | 'offline' = 'good';
 
-    if (!navigator.onLine) {
+    if (!(navigator as any).onLine) {
       quality = 'offline';
     } else if (effectiveType === '2g' || effectiveType === 'slow-2g' || downlink < 0.5) {
       quality = 'poor';
@@ -40,15 +40,25 @@ export const detectNetworkQuality = async (): Promise<NetworkQuality> => {
     };
   }
 
+  // 未提供探测地址时，仅依据 online 状态给出默认结果（避免对外部地址的强依赖，国内更友好）
+  if (!testUrl) {
+    return {
+      type: (navigator as any).onLine === false ? 'offline' : 'good',
+      rtt: 0,
+      downlink: 0,
+      effectiveType: 'unknown',
+    };
+  }
+
   // 通过实际请求测试网络质量
-  return await testNetworkQuality();
+  return await testNetworkQuality(testUrl);
 };
 
 /**
  * 通过实际请求测试网络质量
  */
-const testNetworkQuality = async (): Promise<NetworkQuality> => {
-  const testUrl = 'https://www.google.com/generate_204'; // 204 No Content，快速响应
+const testNetworkQuality = async (testUrl: string): Promise<NetworkQuality> => {
+  const url = testUrl || 'https://www.google.com/generate_204'; // 204 No Content，快速响应
   const startTime = performance.now();
 
   try {
@@ -56,7 +66,7 @@ const testNetworkQuality = async (): Promise<NetworkQuality> => {
     const timeoutId = setTimeout(() => controller.abort(), 5000);
 
     // 发送测试请求
-    await fetch(testUrl, {
+    await fetch(url, {
       method: 'HEAD',
       mode: 'no-cors',
       signal: controller.signal,
@@ -68,7 +78,7 @@ const testNetworkQuality = async (): Promise<NetworkQuality> => {
 
     let quality: 'good' | 'poor' | 'offline' = 'good';
 
-    if (!navigator.onLine) {
+    if (!(navigator as any).onLine) {
       quality = 'offline';
     } else if (rtt > 1000) {
       quality = 'poor';
@@ -84,7 +94,7 @@ const testNetworkQuality = async (): Promise<NetworkQuality> => {
     };
   } catch {
     return {
-      type: navigator.onLine ? 'poor' : 'offline',
+      type: (navigator as any).onLine ? 'poor' : 'offline',
       rtt: 9999,
       downlink: 0,
       effectiveType: 'unknown',
@@ -125,18 +135,21 @@ export const getRecommendedRetryCount = (networkQuality: NetworkQuality): number
 /**
  * 监听网络状态变化
  */
-export const watchNetworkStatus = (onChange: (quality: NetworkQuality) => void): (() => void) => {
+export const watchNetworkStatus = (
+  onChange: (quality: NetworkQuality) => void,
+  testUrl?: string
+): (() => void) => {
   const connection =
     (navigator as any).connection || (navigator as any).mozConnection || (navigator as any).webkitConnection;
 
   const handleChange = async () => {
-    const quality = await detectNetworkQuality();
+    const quality = await detectNetworkQuality(testUrl);
     onChange(quality);
   };
 
   // 监听在线/离线状态
-  window.addEventListener('online', handleChange);
-  window.addEventListener('offline', handleChange);
+  (window as any).addEventListener('online', handleChange);
+  (window as any).addEventListener('offline', handleChange);
 
   // 监听网络类型变化
   if (connection) {
@@ -145,8 +158,8 @@ export const watchNetworkStatus = (onChange: (quality: NetworkQuality) => void):
 
   // 返回清理函数
   return () => {
-    window.removeEventListener('online', handleChange);
-    window.removeEventListener('offline', handleChange);
+    (window as any).removeEventListener('online', handleChange);
+    (window as any).removeEventListener('offline', handleChange);
     if (connection) {
       connection.removeEventListener('change', handleChange);
     }

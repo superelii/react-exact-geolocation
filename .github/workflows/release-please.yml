@@ -1,0 +1,19 @@
+name: Release Please
+
+# 在 beta 分支推送时，自动创建/更新 release PR（基于 Conventional Commits 汇总变更）
+on:
+  push:
+    branches: [beta]
+
+permissions:
+  contents: write
+  pull-requests: write
+
+jobs:
+  release-please:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: googleapis/release-please-action@v4
+        with:
+          config-file: release-please-config.json
+          manifest-file: .release-please-manifest.json

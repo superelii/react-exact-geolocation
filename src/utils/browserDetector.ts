@@ -45,7 +45,7 @@ export const getBrowserLocationOptions = (
     timeout: number;
     maximumAge: number;
   }
-): PositionOptions => {
+): any => {
   // 针对不同浏览器的特殊适配
   return {
     enableHighAccuracy: browser === '360浏览器' ? false : baseOptions.enableHighAccuracy,

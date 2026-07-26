@@ -42,25 +42,39 @@ export const handleMapApiError = (err: unknown, lang: Language, mapService: stri
  * @param lang 语言类型
  * @returns 格式化的多语言错误信息
  */
-export const handleGeolocationError = (error: GeolocationPositionError, browser: string, lang: Language): string => {
-  switch (error.code) {
-    case 1:
-      if (browser.includes('360')) {
-        return getLocaleText('permission_denied_360', lang);
-      } else if (browser.includes('Edge')) {
-        return getLocaleText('permission_denied_edge', lang);
-      } else {
-        return getLocaleText('permission_denied', lang, { browser });
-      }
-    case 2:
-      return getLocaleText('position_unavailable', lang, { browser });
-    case 3:
-      return getLocaleText('timeout', lang);
-    default:
-      if (error.message.includes('HTTPS') || error.message.includes('security')) {
-        return getLocaleText('https_required', lang, { browser });
-      } else {
-        return getLocaleText('unknown_error', lang, { message: error.message });
-      }
+export const handleGeolocationError = (error: any, browser: string, lang: Language): string => {
+  // 无 error 对象（如被 abort 后已在调用方拦截）兜底
+  if (!error) {
+    return getLocaleText('unknown_error', lang, { message: 'unknown' });
   }
+
+  // 标准 GeolocationPositionError 带 code
+  if (typeof error.code === 'number') {
+    switch (error.code) {
+      case 1:
+        if (browser.includes('360')) {
+          return getLocaleText('permission_denied_360', lang);
+        } else if (browser.includes('Edge')) {
+          return getLocaleText('permission_denied_edge', lang);
+        } else {
+          return getLocaleText('permission_denied', lang, { browser });
+        }
+      case 2:
+        return getLocaleText('position_unavailable', lang, { browser });
+      case 3:
+        return getLocaleText('timeout', lang);
+      default:
+        break;
+    }
+  }
+
+  // 无 code（自定义 provider 抛出的错误等）
+  const message: string = error.message || 'unknown';
+  if (message.includes('GEOLOCATION_UNSUPPORTED') || message.toLowerCase().includes('geolocation')) {
+    return getLocaleText('geolocation_not_supported', lang, { browser });
+  }
+  if (message.includes('HTTPS') || message.includes('security')) {
+    return getLocaleText('https_required', lang, { browser });
+  }
+  return getLocaleText('unknown_error', lang, { message });
 };
